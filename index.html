@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - interactive - voxel painter</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	
+		<style>	
+			* {
+				margin: 0;
+				padding: 0;
+			  }
+		
+			  canvas {
+		/*         cursor: grab;
+		 */        display: block;
+			  }
+		
+			  
+		
+			  .models {
+				position: absolute;
+				bottom: 0;
+				left: 40%;
+				transform: translate(200%, -50%);
+				z-index: 10;
+				background: white;
+				padding: 8px;
+				
+			  }
+		
+			  .models button {
+				border: none;
+				outline: 0;
+				background: none;
+				display: inline-flex;
+				flex-direction: column;
+				row-gap: 4px;
+				margin-left: 4px;
+		cursor: pointer;
+			   }
+		
+			  .models button:first-of-type {
+				margin: 0;
+			  }
+		
+			  .models img {
+				height: 64px;
+			  }
+		  </style>
+	</head>
+	<body>
+        
+    <div class="models">
+        <button class="cube">
+          <img src="./renders/cube.jpg" alt="Render of a cube" />
+          <label>cube</label>
+        </button>
+    
+    
+        <button class="cylinder">
+          <img src="./renders/cylinder.jpg" alt="Render of a cylinder" />
+          <label>Cylinder</label>
+        </button>
+
+		<button class="rectangle">
+			<img src="./renders/rectangle.JPG" alt="Render of a rectangle" />
+			<label>Rectangle</label>
+		  </button>
+
+
+
+      </div>
+         
+	
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/102/three.js"></script> <!-- hedhy besh tsyryodhhourouly les forme ama maysyr hat shy -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/2.1.2/TweenMax.min.js"> </script> <!-- hedhy  interaction-->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r125/three.min.js"></script> 
+
+
+
+		<script type="module">
+
+			import * as THREE from "https://threejs.org/build/three.module.js";
+  import { OrbitControls } from "https://threejs.org/examples/jsm/controls/OrbitControls.js";
+  import { GLTFLoader } from "https://threejs.org/examples/jsm/loaders/GLTFLoader.js";
+  
+
+			let camera, scene, renderer;
+			let plane;
+			let mouse, raycaster, isShiftDown = false;
+
+			let rollOverMesh, rollOverMaterial;
+			let cubeGeo, cubeMaterial;
+
+			const objects = [];
+
+			init();
+			render();
+
+			function init() {
+
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera.position.set( 500, 800, 1300 );
+				camera.lookAt( 0, 0, 0 );
+
+				scene = new THREE.Scene();
+				scene.background = new THREE.Color( 0xf0f0f0 );
+
+
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );
+
+
+
+
+// Model loader instance
+const modelLoader = new GLTFLoader();
+// Shared model material
+const material = new THREE.MeshNormalMaterial();
+const createModel = async model => {
+
+  // Cleanup old models
+    scene.traverse(object => {
+    if (!object.isMesh || object.name === 'gridHelper') return;
+    scene.remove(object);
+    object.geometry.dispose();
+    object.material.dispose();
+    }); 
+
+  // Load model
+  const gltf = await modelLoader.loadAsync(`/models/${model}.glb`);
+  const [object1] = gltf.scene.children;
+  
+  // Overwrite object material (from Blender)
+  object1.material = material;
+  object1.scale.set(50,50,50);
+  object1.position.set(0,50,0);
+  object1.material.opacity = 0.5;
+  object1.material.transparent= "true";
+  
+  // Add model to scene
+  /*  scene.add(object1);  */
+
+
+
+   const rollOverMesh = new THREE.Group();
+   rollOverMesh.add( object1 );
+   scene.add(rollOverMesh);
+   
+ 
+}
+
+// Setup button events
+document.querySelector('.cube').onclick = () => createModel('cube');
+document.querySelector('.cylinder').onclick = () => createModel('cylinder');
+
+renderer.setAnimationLoop(() => {
+  //controls.update();
+renderer.render(scene, camera);
+});  
+
+
+				// roll-over helpers
+
+				/* const rollOverGeo = new THREE.BoxGeometry( 50, 50, 50 );
+				rollOverMaterial = new THREE.MeshBasicMaterial( { color: "aqua", opacity: 0.5, transparent: true } ); */
+				/* rollOverMesh = new THREE.Mesh( rollOverGeo, rollOverMaterial );
+				scene.add( rollOverMesh );
+ */
+				// cubes
+
+				/* cubeGeo = new THREE.BoxGeometry( 50, 50, 50 );
+				cubeMaterial = new THREE.MeshLambertMaterial( { color: 0xfeb74c, map: new THREE.TextureLoader().load( 'textures/square-outline-textured.png' ) } ); */
+
+				// grid
+
+				const gridHelper = new THREE.GridHelper( 1000, 20 );
+				scene.add( gridHelper );
+
+				//
+
+				raycaster = new THREE.Raycaster();
+				mouse = new THREE.Vector2();
+
+				const geometry = new THREE.PlaneGeometry( 1000, 1000 );
+				geometry.rotateX( - Math.PI / 2 );
+
+				plane = new THREE.Mesh( geometry, new THREE.MeshBasicMaterial( { visible: false } ) );
+				scene.add( plane );
+
+				objects.push( plane );
+
+				// lights
+
+				const ambientLight = new THREE.AmbientLight( 0x606060 );
+				scene.add( ambientLight );
+
+				const directionalLight = new THREE.DirectionalLight( 0xffffff );
+				directionalLight.position.set( 1, 0.75, 0.5 ).normalize();
+				scene.add( directionalLight );
+
+				
+
+				
+
+				document.addEventListener( 'mousemove', onDocumentMouseMove );
+				document.addEventListener( 'mousedown', onDocumentMouseDown );
+				document.addEventListener( 'keydown', onDocumentKeyDown );
+				document.addEventListener( 'keyup', onDocumentKeyUp );
+
+				//
+
+				window.addEventListener( 'resize', onWindowResize );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+
+			function onDocumentMouseMove( event ) {
+
+				event.preventDefault();
+
+				mouse.set( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1 );
+
+				raycaster.setFromCamera( mouse, camera );
+
+				const intersects = raycaster.intersectObjects( objects );
+
+				if ( intersects.length > 0 ) {
+
+					const intersect = intersects[ 0 ];
+                    
+					rollOverMesh.position.copy( intersect.point ).add( intersect.face.normal );
+					rollOverMesh.position.divideScalar( 50 ).floor().multiplyScalar( 50 ).addScalar( 25 );
+
+				}
+
+				render();
+
+			}
+
+			function onDocumentMouseDown( event ) {
+
+				event.preventDefault();
+
+				mouse.set( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1 );
+
+				raycaster.setFromCamera( mouse, camera );
+
+				const intersects = raycaster.intersectObjects( objects );
+
+				if ( intersects.length > 0 ) {
+
+					const intersect = intersects[ 0 ];
+
+					// delete cube
+
+					if ( isShiftDown ) {
+
+						if ( intersect.object !== plane ) {
+
+							scene.remove( intersect.object );
+
+							objects.splice( objects.indexOf( intersect.object ), 1 );
+
+						}
+
+						// create cube
+
+					} else {
+
+						const voxel = rollOverMesh;
+						voxel.position.copy( intersect.point ).add( intersect.face.normal );
+						voxel.position.divideScalar( 50 ).floor().multiplyScalar( 50 ).addScalar( 25 );
+						scene.add( voxel );
+
+						objects.push( voxel );
+
+					}
+
+					render();
+
+				}
+
+			}
+
+			function onDocumentKeyDown( event ) {
+
+				switch ( event.keyCode ) {
+
+					case 16: isShiftDown = true; break;
+
+				}
+
+			}
+
+			function onDocumentKeyUp( event ) {
+
+				switch ( event.keyCode ) {
+
+					case 16: isShiftDown = false; break;
+
+				}
+
+			}
+
+			function render() {
+
+				renderer.render( scene, camera );
+
+			}
+
+
+
+
+
+
+
+            
+		</script>
+
+	</body>
+</html>
